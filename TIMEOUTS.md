@@ -245,6 +245,12 @@ Timeout         Uncontrolled             (overrides SocketTimeout)
 
 ---
 
+## OPEN
+- How to configure io socket timeout and response timeout (e.g. 5min total, but after 30 sec of inactivity end connection)
+- DNS behavior, how to test? Definitive answer? Depending also on JDK version?
+- Recheck overrides
+  
+
 ## Production Configuration Examples
 
 TODO
