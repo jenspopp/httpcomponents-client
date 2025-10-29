@@ -2,13 +2,15 @@
 
 ## Executive Summary
 
-Apache HttpClient 5.5 provides many distinct timeout-related configuration settings. They are distributed across six configuration levels. This document provides a comprehensive list of all timeout configurations, 
+Apache HttpClient 5.5 provides many distinct timeout-related configuration settings. They are distributed across five configuration levels. This document provides a comprehensive list of all timeout configurations, 
 their interactions, and override behaviors.
 
 
 ## Complete Timeout Inventory (Sorted by Configuration Level)
 
-### Level 1: IOReactorConfig (Async Client - Most Generic)
+### Level 1: Transport level
+
+#### IOReactorConfig (Async Client)
 
 **Package:** `org.apache.hc.core5.reactor`
 
@@ -28,26 +30,11 @@ their interactions, and override behaviors.
 - **Note:** Not a timeout itself but controls timeout detection frequency
 
 ---
-
-### Level 2: TlsConfig (TLS Strategy)
-
-**Package:** `org.apache.hc.client5.http.config`
-
-#### 2.1 setHandshakeTimeout(Timeout)
-- **Default:** null (uses ConnectTimeout)
-- **Configuration:** `TlsConfig.Builder` → `ClientTlsStrategyBuilder.create().setTlsConfig()`
-- **What Is Affected:** Time to complete TLS handshake (ClientHello, ServerHello, certificate exchange, key exchange, Finished messages). Starts AFTER TCP connection established. Does NOT include TCP handshake or DNS resolution.
-- **Phase:** TLS Handshake (after TCP, before HTTP)
-- **Interaction:** Provides fine-grained control over TLS portion. ConnectionConfig.setConnectTimeout still applies to total time including TLS. If both set, shorter timeout triggers first.
-- **Status:** Active (since 5.1)
-
-***
-
-### Level 3: SocketConfig (Socket Level - Classic Client)
+#### SocketConfig (Socket Level - Classic Client)
 
 **Package:** `org.apache.hc.core5.http.io`
 
-#### 3.1 setSoTimeout(Timeout)
+#### 1.4 setSoTimeout(Timeout)
 - **Default:** 3 minutes (classic client)
 - **Configuration:** `SocketConfig.Builder` → `PoolingHttpClientConnectionManagerBuilder.setDefaultSocketConfig()`
 - **What Is Affected:** Maximum inactivity period for socket read operations (SO_TIMEOUT). Time waiting for next data packet to arrive on socket. Applies ONLY during data reading (response headers/body). Measures inactivity between consecutive packets, NOT total duration. Timer resets on each packet received.
@@ -57,11 +44,12 @@ their interactions, and override behaviors.
 - **TODO:** Not interaction with IOReactorConfig (async vs. classic client)
 ***
 
-### Level 4: ConnectionConfig (Connection Manager)
+
+### Level 2 Connection management level: ConnectionConfig (Connection Manager)
 
 **Package:** `org.apache.hc.client5.http.config`
 
-#### 4.1 setConnectTimeout(Timeout)
+#### 2.1 setConnectTimeout(Timeout)
 - **Default:** 3 minutes
 - **Configuration:** `ConnectionConfig.Builder` → `PoolingHttpClientConnectionManagerBuilder.setDefaultConnectionConfig()`
 - **What Is Affected:** Total time to establish new connection from scratch:
@@ -71,7 +59,7 @@ their interactions, and override behaviors.
 - **Status:** Active (Preferred since 5.2 - replaces deprecated RequestConfig.setConnectTimeout)
 - **Critical Issue:** DNS can take 15+ seconds at OS level, potentially exceeding configured timeout
 
-#### 4.2 setSocketTimeout(Timeout)
+#### 2.2 setSocketTimeout(Timeout)
 - **Default:** null (undefined)
 - **Configuration:** `ConnectionConfig.Builder` → `PoolingHttpClientConnectionManagerBuilder.setDefaultConnectionConfig()`
 - **What Is Affected:** Maximum inactivity period between data packets. Time waiting for next data packet during I/O operations. Each packet received resets the timer.
@@ -79,7 +67,7 @@ their interactions, and override behaviors.
 - **Interaction:** **OVERRIDDEN by RequestConfig.setResponseTimeout when ResponseTimeout is set to non-null value**
 - **Status:** Active
 
-#### 4.3 setValidateAfterInactivity(TimeValue)
+#### 2.3 setValidateAfterInactivity(TimeValue)
 - **Default:** null (no validation)
 - **Configuration:** `ConnectionConfig.Builder` → `PoolingHttpClientConnectionManagerBuilder.setDefaultConnectionConfig()`
 - **What Is Affected:** Time a pooled connection can sit idle before requiring validation (stale check) before next use. NOT a timeout - it's a duration that triggers action. Helps detect connections closed by server or network issues.
@@ -87,7 +75,7 @@ their interactions, and override behaviors.
 - **Type:** Duration trigger (not timeout)
 - **Status:** Active
 
-#### 4.4 setTimeToLive(TimeValue)
+#### 2.4 setTimeToLive(TimeValue)
 - **Default:** null (unlimited)
 - **Configuration:** `ConnectionConfig.Builder` → `PoolingHttpClientConnectionManagerBuilder.setDefaultConnectionConfig()`
 - **What Is Affected:** Maximum age of connection from creation until forced closure. Total lifetime regardless of activity. Prevents long-lived connection issues (DNS changes, load balancer timeouts).
@@ -96,19 +84,32 @@ their interactions, and override behaviors.
 - **Status:** Active
 
 ***
-
-### Level 5: RequestConfig (Client Default or Per-Request)
+### Level 3: TlsConfig (TLS Strategy)
 
 **Package:** `org.apache.hc.client5.http.config`
 
-#### 5.1 setConnectionRequestTimeout(Timeout)
+#### 3.1 setHandshakeTimeout(Timeout)
+- **Default:** null (uses ConnectTimeout)
+- **Configuration:** `TlsConfig.Builder` → `ClientTlsStrategyBuilder.create().setTlsConfig()`
+- **What Is Affected:** Time to complete TLS handshake (ClientHello, ServerHello, certificate exchange, key exchange, Finished messages). Starts AFTER TCP connection established. Does NOT include TCP handshake or DNS resolution.
+- **Phase:** TLS Handshake (after TCP, before HTTP)
+- **Interaction:** Provides fine-grained control over TLS portion. ConnectionConfig.setConnectTimeout still applies to total time including TLS. If both set, shorter timeout triggers first.
+- **Status:** Active (since 5.1)
+
+***
+
+### Level 4: RequestConfig (Client Default or Per-Request)
+
+**Package:** `org.apache.hc.client5.http.config`
+
+#### 4.1 setConnectionRequestTimeout(Timeout)
 - **Default:** 3 minutes
 - **Configuration:** `RequestConfig.Builder` → `HttpClients.custom().setDefaultRequestConfig()` OR `HttpRequest.setConfig()`
 - **What Is Affected:** Time spent waiting for available connection from connection pool. If pool at max capacity and all connections in use, request waits up to this timeout. Does NOT include connection establishment or request execution time.
 - **Phase:** Connection Pool (Lease/Acquisition)
 - **Status:** Active
 
-#### 5.2 setResponseTimeout(Timeout)
+#### 4.2 setResponseTimeout(Timeout)
 - **Default:** null (infinite)
 - **Configuration:** `RequestConfig.Builder` → `HttpClients.custom().setDefaultRequestConfig()` OR `HttpRequest.setConfig()`
 - **What Is Affected:** Total time from request start to response completion. Includes:
@@ -120,13 +121,13 @@ their interactions, and override behaviors.
 - **HTTP/2 Caveat:** May not be fully supported with HTTP/2 multiplexing
 - **Status:** Active
 
-#### 5.3 setConnectTimeout(Timeout) ⚠️ DEPRECATED
+#### 4.3 setConnectTimeout(Timeout) ⚠️ DEPRECATED
 - **Default:** 3 minutes
 - **Configuration:** `RequestConfig.Builder` → `HttpClients.custom().setDefaultRequestConfig()` OR `HttpRequest.setConfig()`
 - **What Is Affected:** DEPRECATED - Use ConnectionConfig.setConnectTimeout instead
 - **Status:** DEPRECATED (use ConnectionConfig instead, since 5.2)
 
-#### 5.4 setConnectionKeepAlive(TimeValue)
+#### 4.4 setConnectionKeepAlive(TimeValue)
 - **Default:** 3 minutes
 - **Configuration:** `RequestConfig.Builder` → `HttpClients.custom().setDefaultRequestConfig()` OR `HttpRequest.setConfig()`
 - **What Is Affected:** How long idle connection remains in pool available for reuse. Used when server does not send Keep-Alive header. Server can override with shorter Keep-Alive header value.
@@ -136,11 +137,11 @@ their interactions, and override behaviors.
 
 ***
 
-### Level 6: ConnectionEndpoint (Runtime - Most Specific)
+### Special: ConnectionEndpoint (Runtime - Most Specific)
 
 **Package:** `org.apache.hc.client5.http.io`
 
-#### 6.1 setSocketTimeout(Timeout)
+#### setSocketTimeout(Timeout)
 - **Default:** Inherited from config
 - **Configuration:** Direct method call → `ConnectionEndpoint.setSocketTimeout()` during request execution
 - **What Is Affected:** Runtime modification of socket read timeout on active connection. Changes timeout immediately for subsequent read operations. Useful for adjusting timeout mid-request (e.g., longer timeout after receiving 100-Continue).
