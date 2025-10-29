@@ -210,15 +210,15 @@ their interactions, and override behaviors.
 
 ### Configuration Scope
 
-| Level | Scope | Applied To | Override Behavior |
+| Class | Scope | Applied To | Override Behavior |
 |-------|-------|-----------|-------------------|
-| Level 6: ConnectionEndpoint | Single connection instance | Runtime modification | Highest priority, immediate effect |
-| Level 5: RequestConfig (per-request) | Single request | One HTTP request | Completely replaces client defaults (no inheritance) |
-| Level 5: RequestConfig (client default) | All client requests | All requests from client | Used when request has no explicit config |
-| Level 4: ConnectionConfig | All connections | Connection manager | Applies to all connections from manager |
-| Level 3: SocketConfig | All sockets | Socket operations | Classic clients only |
-| Level 2: TlsConfig | All TLS operations | TLS handshakes | Specific to TLS phase |
-| Level 1: IOReactorConfig | All async I/O | Async client | Async clients only |
+| ConnectionEndpoint | Single connection instance | Runtime modification | Highest priority, immediate effect |
+| RequestConfig (per-request) | Single request | One HTTP request | Completely replaces client defaults (no inheritance) |
+| RequestConfig (client default) | All client requests | All requests from client | Used when request has no explicit config |
+| TlsConfig | All TLS operations | TLS handshakes | Specific to TLS phase |
+| ConnectionConfig | All connections | Connection manager | Applies to all connections from manager |
+| SocketConfig | All sockets | Socket operations | Classic clients only |
+| IOReactorConfig | All async I/O | Async client | Async clients only |
 
 ***
 
